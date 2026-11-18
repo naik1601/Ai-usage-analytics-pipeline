@@ -8,3 +8,13 @@
 {"timestamp":"2026-11-17T22:23:09.138813Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
 {"timestamp":"2026-11-17T22:23:58.368173Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
 {"timestamp":"2026-11-17T22:24:28.831704Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:24:59.267561Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:25:29.703374Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:26:00.315104Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:26:30.783642Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:27:01.253101Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:27:31.768786Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:28:02.441198Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:28:32.886120Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:29:03.385638Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-17T22:29:33.870744Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}

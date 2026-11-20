@@ -4,3 +4,5 @@
 logs/
 __pycache__/
 *.pyc
+orchestration/config/*.p8
+orchestration/config/*.pub  

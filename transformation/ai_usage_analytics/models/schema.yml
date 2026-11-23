@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: latest_completed_days
+    description: Latest completed extraction for each provider, dataset and UTC day.
+    columns:
+      - name: usage_date
+        data_tests:
+          - not_null
+
+      - name: attempt_id
+        data_tests:
+          - not_null
+
+  - name: silver_openai_usage
+    description: OpenAI daily usage by model, project and API key.
+    columns:
+      - name: usage_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: usage_date
+        data_tests:
+          - not_null
+
+      - name: input_tokens
+        data_tests:
+          - not_null
+
+      - name: output_tokens
+        data_tests:
+          - not_null
+
+      - name: model_requests
+        data_tests:
+          - not_null
+
+  - name: silver_openai_costs
+    description: OpenAI reported daily costs by project, line item and currency.
+    columns:
+      - name: cost_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: usage_date
+        data_tests:
+          - not_null
+
+      - name: cost_amount
+        data_tests:
+          - not_null
+
+      - name: currency
+        data_tests:
+          - not_null

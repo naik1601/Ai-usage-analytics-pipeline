@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: gold_daily_summary
+    description: Daily OpenAI usage and reported USD spending with coverage indicators.
+    columns:
+      - name: daily_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: provider
+        data_tests:
+          - not_null
+
+      - name: usage_date
+        data_tests:
+          - not_null
+
+  - name: gold_monthly_summary
+    description: Monthly totals with loaded-day counts to identify partial months.
+    columns:
+      - name: monthly_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: usage_month
+        data_tests:
+          - not_null

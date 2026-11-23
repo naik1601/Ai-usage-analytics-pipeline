@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: AI_USAGE_ANALYTICS
+    schema: BRONZE
+    tables:
+      - name: openai_usage_raw
+        identifier: OPENAI_USAGE_RAW
+
+      - name: openai_costs_raw
+        identifier: OPENAI_COSTS_RAW
+
+      - name: ingestion_manifests
+        identifier: INGESTION_MANIFESTS

@@ -1,0 +1,20 @@
+name: ai_usage_analytics
+version: "1.0.0"
+config-version: 2
+
+profile: ai_usage_analytics
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+analysis-paths: ["analyses"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  ai_usage_analytics:
+    +materialized: view

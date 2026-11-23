@@ -1,0 +1,27 @@
+[0m14:50:14.722058 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000016799433230>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000016799FC2390>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001679BF92360>]}
+
+
+============================== 14:50:14.728124 | 88903ab8-8cd8-48ca-b2bf-abff7471af6d ==============================
+[0m14:50:14.728124 [info ] [MainThread]: Running with dbt=1.12.7
+[0m14:50:14.728124 [debug] [MainThread]: running dbt with arguments {'maximum_seed_size_mib': '1', 'no_print': 'None', 'version_check': 'True', 'target_path': 'None', 'static_parser': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'printer_width': '80', 'write_json': 'True', 'introspect': 'True', 'log_cache_events': 'False', 'empty': 'None', 'cache_selected_only': 'False', 'log_format': 'default', 'debug': 'False', 'fail_fast': 'False', 'partial_parse': 'True', 'send_anonymous_usage_stats': 'True', 'quiet': 'False', 'warn_error': 'None', 'profiles_dir': 'C:\\Users\\naiks\\.dbt', 'use_colors': 'True', 'hints_enabled': 'True', 'invocation_command': 'dbt init ai_usage_analytics --skip-profile-setup', 'use_experimental_parser': 'False', 'indirect_selection': 'eager', 'log_path': 'logs'}
+[0m14:50:14.891535 [debug] [MainThread]: Starter project path: C:\Users\naiks\ai-usage-analytics\transformation\.venv\Lib\site-packages\dbt\include\starter_project
+[0m14:50:14.925034 [info ] [MainThread]: Your new dbt project "ai_usage_analytics" was created!
+Initialized new project in C:\Users\naiks\ai-usage-analytics\transformation\ai_usage_analytics\ai_usage_analytics
+
+For more information on how to configure the profiles.yml file,
+please consult the dbt documentation here:
+
+  https://docs.getdbt.com/docs/configure-your-profile
+
+One more thing:
+
+Need help? Don't hesitate to reach out to us via GitHub issues or on Slack:
+
+  https://community.getdbt.com/
+
+Happy modeling!
+
+[0m14:50:14.927044 [debug] [MainThread]: Command `python -m dbt.cli.main init` succeeded at 14:50:14.927044 after 0.51 seconds
+[0m14:50:14.927044 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x0000016799433230>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001679BF1FE00>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001679BF453D0>]}
+[0m14:50:14.927044 [debug] [MainThread]: Flushing usage events
+[0m14:50:15.478930 [debug] [MainThread]: An error was encountered while trying to flush usage events

@@ -29,6 +29,7 @@ x-airflow-common: &airflow-common
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./config:/opt/airflow/config
+    - ../transformation/ai_usage_analytics:/opt/airflow/dbt
     - "${AWS_SHARED_DIR:?Set AWS_SHARED_DIR in .env}:/home/airflow/.aws:ro"
 
   user: "${AIRFLOW_UID:-50000}:0"

@@ -17,6 +17,9 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.timetables.trigger import CronTriggerTimetable
+import subprocess
+import tempfile
+from pathlib import Path
 
 
 LOGGER = logging.getLogger(__name__)
@@ -563,5 +566,110 @@ with DAG(
         show_return_value_in_logs=False,
     )
 
+def run_dbt_build(**context):
+    """Build Silver/Gold models and run tests in dbt's own environment."""
+
+    snowflake = Connection.get("snowflake_ai_usage")
+    extras = snowflake.extra_dejson
+
+    account = extras.get("account")
+    user = snowflake.login
+    passphrase = snowflake.password
+
+    if not account or not user or not passphrase:
+        raise ValueError(
+            "Snowflake connection requires account, login, "
+            "and the private-key passphrase."
+        )
+
+    dbt_python = "/opt/airflow/dbt-venv/bin/python"
+    project_dir = "/opt/airflow/dbt"
+    profiles_dir = "/opt/airflow/config/dbt"
+
+    if not Path(dbt_python).is_file():
+        raise FileNotFoundError("The dbt Python environment is missing.")
+
+    if not Path(project_dir, "dbt_project.yml").is_file():
+        raise FileNotFoundError("The dbt project mount is missing.")
+
+    if not Path(profiles_dir, "profiles.yml").is_file():
+        raise FileNotFoundError("The Docker dbt profile is missing.")
+
+    # Pass credentials only to the child process.
+    environment = os.environ.copy()
+    environment.update({
+        "DBT_SNOWFLAKE_ACCOUNT": account,
+        "DBT_SNOWFLAKE_USER": user,
+        "DBT_ENV_SECRET_SNOWFLAKE_KEY_PASSPHRASE": passphrase,
+        "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
+        "DBT_USE_COLORS": "false",
+    })
+
+    # Prevent Airflow's Python settings leaking into dbt's environment.
+    for name in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
+        environment.pop(name, None)
+
+    # Preserve dbt logs separately for each task attempt.
+    run_hash = hashlib.sha256(
+        context["run_id"].encode("utf-8")
+    ).hexdigest()[:16]
+
+    log_dir = Path(
+        "/opt/airflow/logs/dbt",
+        run_hash,
+        uuid4().hex,
+    )
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    environment["DBT_LOG_PATH"] = str(log_dir)
+
+    # Compiled artifacts are temporary; raw API data stays in S3.
+    with tempfile.TemporaryDirectory(prefix="dbt-target-") as target_dir:
+        environment["DBT_TARGET_PATH"] = target_dir
+
+        result = subprocess.run(
+            [
+                dbt_python,
+                "-m",
+                "dbt.cli.main",
+                "build",
+                "--project-dir",
+                project_dir,
+                "--profiles-dir",
+                profiles_dir,
+                "--target",
+                "docker",
+            ],
+            cwd=project_dir,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=1200,
+            check=False,
+        )
+
+        # Extra protection against logging the passphrase.
+        output = "\n".join([
+            result.stdout or "",
+            result.stderr or "",
+        ]).replace(passphrase, "***")
+
+        LOGGER.info("dbt output:\n%s", output)
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"dbt build failed with exit code {result.returncode}. "
+                "Check the task logs for model or test failures."
+            )
+
+    LOGGER.info("dbt models and tests completed successfully.")
+
+    dbt_build = PythonOperator(
+        task_id="dbt_build",
+        python_callable=run_dbt_build,
+        show_return_value_in_logs=False,
+    )
+
     extract_usage >> load_usage
     extract_costs >> load_costs
+    [load_usage, load_costs] >> dbt_build

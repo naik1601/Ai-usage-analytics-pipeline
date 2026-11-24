@@ -1,0 +1,15 @@
+ai_usage_analytics:
+  target: docker
+  outputs:
+    docker:
+      type: snowflake
+      account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
+      role: AI_USAGE_TRANSFORMER
+      database: AI_USAGE_ANALYTICS
+      warehouse: AI_USAGE_WH
+      schema: SILVER
+      threads: 4
+
+      private_key_path: /opt/airflow/config/snowflake_key.p8
+      private_key_passphrase: "{{ env_var('DBT_ENV_SECRET_SNOWFLAKE_KEY_PASSPHRASE') }}"

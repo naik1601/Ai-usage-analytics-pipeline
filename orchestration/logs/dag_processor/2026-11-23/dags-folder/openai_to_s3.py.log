@@ -332,3 +332,4 @@
 {"timestamp":"2026-11-23T22:15:22.588380Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
 {"timestamp":"2026-11-23T22:15:53.272243Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
 {"timestamp":"2026-11-23T22:16:23.962685Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-23T22:16:54.491220Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}

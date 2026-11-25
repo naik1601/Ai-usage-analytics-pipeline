@@ -3,12 +3,17 @@ import json
 import logging
 import os
 import re
+import subprocess
+import tempfile
+
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from urllib.parse import urlparse
 from uuid import uuid4
 
 import pendulum
 import requests
+
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -17,9 +22,6 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.timetables.trigger import CronTriggerTimetable
-import subprocess
-import tempfile
-from pathlib import Path
 
 
 LOGGER = logging.getLogger(__name__)
@@ -44,18 +46,21 @@ DATASETS = {
 }
 
 
+# ---------------------------------------------------------
+# Extract OpenAI data directly into S3
+# ---------------------------------------------------------
+
 def extract_to_s3(dataset, **context):
     """Extract one page at a time and upload directly to S3."""
 
     bucket = os.environ["S3_BUCKET"]
     settings = DATASETS[dataset]
 
-    # Retrieve credentials only when the task executes.
     api_key = Connection.get("openai_admin").password
+
     if not api_key:
         raise ValueError("The openai_admin connection has no password.")
 
-    # Anchor the default window to the run, not the retry time.
     anchor = context["data_interval_end"].in_timezone("UTC")
     default_end = anchor.start_of("day").date()
 
@@ -85,10 +90,17 @@ def extract_to_s3(dataset, **context):
         )
 
     start = pendulum.datetime(
-        start_date.year, start_date.month, start_date.day, tz="UTC"
+        start_date.year,
+        start_date.month,
+        start_date.day,
+        tz="UTC",
     )
+
     end = pendulum.datetime(
-        end_date.year, end_date.month, end_date.day, tz="UTC"
+        end_date.year,
+        end_date.month,
+        end_date.day,
+        tz="UTC",
     )
 
     query = {
@@ -99,19 +111,18 @@ def extract_to_s3(dataset, **context):
         "limit": 31,
     }
 
-    # Separate attempts prevent partial extractions from mixing.
     run_hash = hashlib.sha256(
         context["run_id"].encode("utf-8")
     ).hexdigest()[:16]
 
     attempt_id = uuid4().hex
+
     prefix = (
         f"raw/provider=openai/dataset={dataset}/"
         f"window_start={start_date}/window_end={end_date}/"
         f"run={run_hash}/attempt={attempt_id}"
     )
 
-    # Use the mounted AWS profile through boto3's credential chain.
     s3 = S3Hook(aws_conn_id=None)
 
     retry_policy = Retry(
@@ -131,6 +142,7 @@ def extract_to_s3(dataset, **context):
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
         })
+
         session.mount(
             "https://",
             HTTPAdapter(max_retries=retry_policy),
@@ -147,7 +159,8 @@ def extract_to_s3(dataset, **context):
                 raise RuntimeError(
                     f"OpenAI {dataset} request failed: "
                     f"HTTP {response.status_code}. "
-                    f"Request ID: {response.headers.get('x-request-id')}"
+                    f"Request ID: "
+                    f"{response.headers.get('x-request-id')}"
                 )
 
             page = response.json()
@@ -165,6 +178,7 @@ def extract_to_s3(dataset, **context):
                     raise ValueError("Unexpected usage bucket structure.")
 
                 results = bucket_data.get("results")
+
                 if not isinstance(results, list):
                     raise ValueError("Unexpected results structure.")
 
@@ -185,9 +199,10 @@ def extract_to_s3(dataset, **context):
                 "response": page,
             }
 
-            object_key = f"{prefix}/pages/page_{page_number:05d}.json"
+            object_key = (
+                f"{prefix}/pages/page_{page_number:05d}.json"
+            )
 
-            # Serialize in memory—no local raw-data file.
             s3.load_string(
                 string_data=json.dumps(document),
                 key=object_key,
@@ -208,13 +223,15 @@ def extract_to_s3(dataset, **context):
                 break
 
             cursor = page.get("next_page")
+
             if not cursor or cursor in seen_cursors:
-                raise ValueError("Missing or repeated pagination cursor.")
+                raise ValueError(
+                    "Missing or repeated pagination cursor."
+                )
 
             seen_cursors.add(cursor)
             query["page"] = cursor
 
-    # Publish only after every page has uploaded successfully.
     manifest_key = f"{prefix}/manifest.json"
 
     manifest = {
@@ -246,15 +263,18 @@ def extract_to_s3(dataset, **context):
         record_count,
     )
 
-    # Only a small reference enters XCom.
     return {
         "manifest_uri": f"s3://{bucket}/{manifest_key}",
         "record_count": record_count,
     }
 
 
+# ---------------------------------------------------------
+# Load completed S3 extractions into Snowflake Bronze
+# ---------------------------------------------------------
+
 def load_to_snowflake(dataset, extract_task_id, **context):
-    """Load a completed extraction into Bronze and verify its counts."""
+    """Load a completed extraction and verify page/record counts."""
 
     bucket = os.environ["S3_BUCKET"]
     table = DATASETS[dataset]["table"]
@@ -268,10 +288,10 @@ def load_to_snowflake(dataset, extract_task_id, **context):
         raise ValueError("Missing extraction result in XCom.")
 
     manifest_uri = extraction.get("manifest_uri")
+
     if not isinstance(manifest_uri, str):
         raise ValueError("Missing manifest URI.")
 
-    # Accept only this bucket and the expected extraction path.
     uri = urlparse(manifest_uri)
 
     if (
@@ -296,17 +316,24 @@ def load_to_snowflake(dataset, extract_task_id, **context):
     )
 
     match = re.fullmatch(path_pattern, manifest_key)
+
     if not match:
-        raise ValueError("Manifest path does not match this dataset/run.")
+        raise ValueError(
+            "Manifest path does not match this dataset/run."
+        )
 
     path_start, path_end, attempt_id = match.groups()
+
     prefix = manifest_key.removesuffix("/manifest.json")
     pages_prefix = f"{prefix}/pages/"
 
-    # Read only the small manifest into Airflow.
     s3 = S3Hook(aws_conn_id=None)
+
     manifest = json.loads(
-        s3.read_key(key=manifest_key, bucket_name=bucket)
+        s3.read_key(
+            key=manifest_key,
+            bucket_name=bucket,
+        )
     )
 
     if not isinstance(manifest, dict):
@@ -323,7 +350,9 @@ def load_to_snowflake(dataset, extract_task_id, **context):
 
     for field, expected in expected_fields.items():
         if manifest.get(field) != expected:
-            raise ValueError(f"Unexpected manifest field: {field}")
+            raise ValueError(
+                f"Unexpected manifest field: {field}"
+            )
 
     window_start = pendulum.parse(manifest["window_start"])
     window_end = pendulum.parse(manifest["window_end"])
@@ -333,7 +362,9 @@ def load_to_snowflake(dataset, extract_task_id, **context):
         or window_end.to_date_string() != path_end
         or window_start >= window_end
     ):
-        raise ValueError("Manifest window does not match its path.")
+        raise ValueError(
+            "Manifest window does not match its path."
+        )
 
     page_count = manifest.get("page_count")
     record_count = manifest.get("record_count")
@@ -344,12 +375,13 @@ def load_to_snowflake(dataset, extract_task_id, **context):
     if type(record_count) is not int or record_count < 0:
         raise ValueError("Invalid manifest record_count.")
 
-    # The stage URL already ends in /raw/, so remove that prefix.
+    # Stage URL already ends in /raw/.
     stage_pages_path = pages_prefix.removeprefix("raw/")
 
     hook = SnowflakeHook(
         snowflake_conn_id=SNOWFLAKE_CONNECTION
     )
+
     connection = hook.get_conn()
 
     try:
@@ -358,7 +390,6 @@ def load_to_snowflake(dataset, extract_task_id, **context):
         with connection.cursor() as cursor:
             cursor.execute("BEGIN")
 
-            # Durable retry guard: do not reload a committed attempt.
             cursor.execute(
                 f"""
                 SELECT COUNT(*)
@@ -370,19 +401,19 @@ def load_to_snowflake(dataset, extract_task_id, **context):
 
             if cursor.fetchone()[0] > 0:
                 connection.commit()
+
                 LOGGER.info(
                     "Already loaded %s attempt %s; skipping.",
                     dataset,
                     attempt_id,
                 )
+
                 return {
                     "dataset": dataset,
                     "status": "already_loaded",
                     "record_count": record_count,
                 }
 
-            # Only validated paths and allowlisted table names are
-            # interpolated into SQL. API keys never enter SQL.
             cursor.execute(
                 f"""
                 COPY INTO {table}
@@ -402,14 +433,16 @@ def load_to_snowflake(dataset, extract_task_id, **context):
                 FORCE = FALSE
                 """
             )
+
             cursor.fetchall()
 
-            # One Bronze row represents one complete API page.
             cursor.execute(
                 f"""
                 SELECT
                     COUNT(*),
-                    COUNT(DISTINCT PAYLOAD:page_number::INTEGER),
+                    COUNT(
+                        DISTINCT PAYLOAD:page_number::INTEGER
+                    ),
                     MIN(PAYLOAD:page_number::INTEGER),
                     MAX(PAYLOAD:page_number::INTEGER)
                 FROM {table}
@@ -436,7 +469,6 @@ def load_to_snowflake(dataset, extract_task_id, **context):
                     f"{distinct_pages} distinct pages."
                 )
 
-            # Count the actual API result records inside the pages.
             cursor.execute(
                 f"""
                 SELECT COALESCE(
@@ -462,7 +494,6 @@ def load_to_snowflake(dataset, extract_task_id, **context):
                     f"{record_count}, found {loaded_records}."
                 )
 
-            # Commit marker and raw pages belong to one transaction.
             cursor.execute(
                 f"""
                 INSERT INTO {MANIFEST_TABLE}
@@ -500,11 +531,132 @@ def load_to_snowflake(dataset, extract_task_id, **context):
         connection.close()
 
 
+# ---------------------------------------------------------
+# Run dbt models and tests
+# ---------------------------------------------------------
+
+def run_dbt_build(**context):
+    """Build Silver/Gold models and run their tests."""
+
+    snowflake = Connection.get(SNOWFLAKE_CONNECTION)
+    extras = snowflake.extra_dejson
+
+    account = extras.get("account")
+    user = snowflake.login
+    passphrase = snowflake.password
+
+    if not account or not user or not passphrase:
+        raise ValueError(
+            "Snowflake connection requires account, login, "
+            "and the private-key passphrase."
+        )
+
+    dbt_python = "/opt/airflow/dbt-venv/bin/python"
+    project_dir = "/opt/airflow/dbt"
+    profiles_dir = "/opt/airflow/config/dbt"
+
+    if not Path(dbt_python).is_file():
+        raise FileNotFoundError(
+            "The dbt Python environment is missing."
+        )
+
+    if not Path(project_dir, "dbt_project.yml").is_file():
+        raise FileNotFoundError(
+            "The dbt project mount is missing."
+        )
+
+    if not Path(profiles_dir, "profiles.yml").is_file():
+        raise FileNotFoundError(
+            "The Docker dbt profile is missing."
+        )
+
+    environment = os.environ.copy()
+
+    environment.update({
+        "DBT_SNOWFLAKE_ACCOUNT": account,
+        "DBT_SNOWFLAKE_USER": user,
+        "DBT_ENV_SECRET_SNOWFLAKE_KEY_PASSPHRASE": passphrase,
+        "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
+        "DBT_USE_COLORS": "false",
+    })
+
+    for name in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
+        environment.pop(name, None)
+
+    run_hash = hashlib.sha256(
+        context["run_id"].encode("utf-8")
+    ).hexdigest()[:16]
+
+    log_dir = Path(
+        "/opt/airflow/logs/dbt",
+        run_hash,
+        uuid4().hex,
+    )
+
+    log_dir.mkdir(parents=True, exist_ok=True)
+    environment["DBT_LOG_PATH"] = str(log_dir)
+
+    with tempfile.TemporaryDirectory(
+        prefix="dbt-target-"
+    ) as target_dir:
+
+        environment["DBT_TARGET_PATH"] = target_dir
+
+        result = subprocess.run(
+            [
+                dbt_python,
+                "-m",
+                "dbt.cli.main",
+                "build",
+                "--project-dir",
+                project_dir,
+                "--profiles-dir",
+                profiles_dir,
+                "--target",
+                "docker",
+            ],
+            cwd=project_dir,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=1200,
+            check=False,
+        )
+
+        output = "\n".join([
+            result.stdout or "",
+            result.stderr or "",
+        ]).replace(passphrase, "***")
+
+        LOGGER.info("dbt output:\n%s", output)
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"dbt build failed with exit code "
+                f"{result.returncode}. "
+                "Check the task logs for model or test failures."
+            )
+
+    LOGGER.info(
+        "dbt models and tests completed successfully."
+    )
+
+
+# ---------------------------------------------------------
+# DAG and task definitions
+# ---------------------------------------------------------
+
 with DAG(
     dag_id="openai_usage_costs_to_s3",
-    description="Extract OpenAI data to S3 and load Snowflake Bronze",
+    description=(
+        "Extract OpenAI data to S3, load Snowflake Bronze, "
+        "and build/test Silver and Gold with dbt"
+    ),
     start_date=pendulum.datetime(
-        2026, 11, 17, tz="America/Chicago"
+        2026,
+        11,
+        17,
+        tz="America/Chicago",
     ),
     schedule=CronTriggerTimetable(
         "0 8 * * *",
@@ -529,20 +681,24 @@ with DAG(
             description="UTC end date, exclusive: YYYY-MM-DD",
         ),
     },
-    tags=["openai", "s3", "snowflake", "bronze"],
+    tags=["openai", "s3", "snowflake", "dbt", "medallion"],
 ) as dag:
 
     extract_usage = PythonOperator(
         task_id="extract_usage_to_s3",
         python_callable=extract_to_s3,
-        op_kwargs={"dataset": "completions_usage"},
+        op_kwargs={
+            "dataset": "completions_usage",
+        },
         show_return_value_in_logs=False,
     )
 
     extract_costs = PythonOperator(
         task_id="extract_costs_to_s3",
         python_callable=extract_to_s3,
-        op_kwargs={"dataset": "costs"},
+        op_kwargs={
+            "dataset": "costs",
+        },
         show_return_value_in_logs=False,
     )
 
@@ -566,104 +722,6 @@ with DAG(
         show_return_value_in_logs=False,
     )
 
-def run_dbt_build(**context):
-    """Build Silver/Gold models and run tests in dbt's own environment."""
-
-    snowflake = Connection.get("snowflake_ai_usage")
-    extras = snowflake.extra_dejson
-
-    account = extras.get("account")
-    user = snowflake.login
-    passphrase = snowflake.password
-
-    if not account or not user or not passphrase:
-        raise ValueError(
-            "Snowflake connection requires account, login, "
-            "and the private-key passphrase."
-        )
-
-    dbt_python = "/opt/airflow/dbt-venv/bin/python"
-    project_dir = "/opt/airflow/dbt"
-    profiles_dir = "/opt/airflow/config/dbt"
-
-    if not Path(dbt_python).is_file():
-        raise FileNotFoundError("The dbt Python environment is missing.")
-
-    if not Path(project_dir, "dbt_project.yml").is_file():
-        raise FileNotFoundError("The dbt project mount is missing.")
-
-    if not Path(profiles_dir, "profiles.yml").is_file():
-        raise FileNotFoundError("The Docker dbt profile is missing.")
-
-    # Pass credentials only to the child process.
-    environment = os.environ.copy()
-    environment.update({
-        "DBT_SNOWFLAKE_ACCOUNT": account,
-        "DBT_SNOWFLAKE_USER": user,
-        "DBT_ENV_SECRET_SNOWFLAKE_KEY_PASSPHRASE": passphrase,
-        "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
-        "DBT_USE_COLORS": "false",
-    })
-
-    # Prevent Airflow's Python settings leaking into dbt's environment.
-    for name in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
-        environment.pop(name, None)
-
-    # Preserve dbt logs separately for each task attempt.
-    run_hash = hashlib.sha256(
-        context["run_id"].encode("utf-8")
-    ).hexdigest()[:16]
-
-    log_dir = Path(
-        "/opt/airflow/logs/dbt",
-        run_hash,
-        uuid4().hex,
-    )
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    environment["DBT_LOG_PATH"] = str(log_dir)
-
-    # Compiled artifacts are temporary; raw API data stays in S3.
-    with tempfile.TemporaryDirectory(prefix="dbt-target-") as target_dir:
-        environment["DBT_TARGET_PATH"] = target_dir
-
-        result = subprocess.run(
-            [
-                dbt_python,
-                "-m",
-                "dbt.cli.main",
-                "build",
-                "--project-dir",
-                project_dir,
-                "--profiles-dir",
-                profiles_dir,
-                "--target",
-                "docker",
-            ],
-            cwd=project_dir,
-            env=environment,
-            capture_output=True,
-            text=True,
-            timeout=1200,
-            check=False,
-        )
-
-        # Extra protection against logging the passphrase.
-        output = "\n".join([
-            result.stdout or "",
-            result.stderr or "",
-        ]).replace(passphrase, "***")
-
-        LOGGER.info("dbt output:\n%s", output)
-
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"dbt build failed with exit code {result.returncode}. "
-                "Check the task logs for model or test failures."
-            )
-
-    LOGGER.info("dbt models and tests completed successfully.")
-
     dbt_build = PythonOperator(
         task_id="dbt_build",
         python_callable=run_dbt_build,
@@ -672,4 +730,5 @@ def run_dbt_build(**context):
 
     extract_usage >> load_usage
     extract_costs >> load_costs
+
     [load_usage, load_costs] >> dbt_build

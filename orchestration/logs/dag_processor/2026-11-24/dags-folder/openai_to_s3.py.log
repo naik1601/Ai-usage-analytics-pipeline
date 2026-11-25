@@ -71,3 +71,11 @@
 {"timestamp":"2026-11-24T22:18:00.521790Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
 {"timestamp":"2026-11-24T22:18:31.516320Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
 {"timestamp":"2026-11-24T22:18:40.892645Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:19:11.795497Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:19:42.634762Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:20:13.591966Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:20:44.667069Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:21:15.698305Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:21:46.703692Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:22:17.578654Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
+{"timestamp":"2026-11-24T22:22:48.398495Z","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/openai_to_s3.py","logger":"airflow.models.dagbag.BundleDagBag","filename":"dagbag.py","lineno":593}
